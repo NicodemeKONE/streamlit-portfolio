@@ -19,7 +19,7 @@ jobs:
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           # REMPLACEZ L'URL PAR CELLE DE VOTRE APP
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          APP_URL="https://votre-app.streamlit.app"
+          APP_URL="https://portfolio-nicodeme.streamlit.app/"
 
           echo "🔔 Ping de l'app à $(date -u '+%Y-%m-%d %H:%M UTC')"
 
