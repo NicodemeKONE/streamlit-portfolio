@@ -1,1 +1,45 @@
+# .github/workflows/keep_alive.yml
+# Empêche l'app Streamlit Community Cloud de passer en veille
+# en la visitant automatiquement toutes les 6 heures.
 
+name: Keep Streamlit App Alive
+
+on:
+  schedule:
+    # Toutes les 6 heures (bien en dessous du seuil de 12h)
+    - cron: "0 */6 * * *"
+  workflow_dispatch: # Permet de lancer manuellement depuis GitHub
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit App
+        run: |
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          # REMPLACEZ L'URL PAR CELLE DE VOTRE APP
+          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          APP_URL="https://votre-app.streamlit.app"
+
+          echo "🔔 Ping de l'app à $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 10 \
+            "$APP_URL")
+
+          echo "📡 Code HTTP: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 302 ]; then
+            echo "✅ App réveillée avec succès"
+          else
+            echo "⚠️ Code inattendu: $HTTP_CODE (l'app redémarre peut-être)"
+          fi
+
+      # Optionnel : ping d'une deuxième app (ex: le simulateur)
+      # - name: Ping Ecosystem Simulator
+      #   run: |
+      #     curl -s -o /dev/null --max-time 60 --retry 3 \
+      #       "https://votre-simulateur.streamlit.app"
+      #     echo "✅ Simulateur pingé"
