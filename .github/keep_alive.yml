@@ -1,45 +1,43 @@
 # .github/workflows/keep_alive.yml
-# Empêche l'app Streamlit Community Cloud de passer en veille
-# en la visitant automatiquement toutes les 6 heures.
+# Empêche les apps Streamlit Community Cloud de passer en veille
+# en les visitant automatiquement toutes les 6 heures.
+# Pour ajouter une nouvelle app : copiez un bloc "Ping" et changez l'URL.
 
-name: Keep Streamlit App Alive
+name: Keep Streamlit Apps Alive
 
 on:
   schedule:
-    # Toutes les 6 heures (bien en dessous du seuil de 12h)
     - cron: "0 */6 * * *"
-  workflow_dispatch: # Permet de lancer manuellement depuis GitHub
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Streamlit App
+      - name: Ping Portfolio
         run: |
-          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          # REMPLACEZ L'URL PAR CELLE DE VOTRE APP
-          # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          APP_URL="https://portfolio-nicodeme.streamlit.app/"
+          echo "🔔 Ping Portfolio — $(date -u '+%Y-%m-%d %H:%M UTC')"
+          curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://portfolio-nicodeme.streamlit.app/"
+          echo "✅ Portfolio OK"
 
-          echo "🔔 Ping de l'app à $(date -u '+%Y-%m-%d %H:%M UTC')"
+      - name: Ping Analyseur de Sentiment
+        run: |
+          echo "🔔 Ping Analyseur de Sentiment"
+          curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://analyseur-sentiment.streamlit.app/"
+          echo "✅ Analyseur de Sentiment OK"
 
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            --max-time 60 \
-            --retry 3 \
-            --retry-delay 10 \
-            "$APP_URL")
+      - name: Ping Ecosystem Simulator
+        run: |
+          echo "🔔 Ping Ecosystem Simulator"
+          curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://ecosystem-simulator.streamlit.app/"
+          echo "✅ Ecosystem Simulator OK"
 
-          echo "📡 Code HTTP: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 302 ]; then
-            echo "✅ App réveillée avec succès"
-          else
-            echo "⚠️ Code inattendu: $HTTP_CODE (l'app redémarre peut-être)"
-          fi
-
-      # Optionnel : ping d'une deuxième app (ex: le simulateur)
-      # - name: Ping Ecosystem Simulator
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # AJOUTER UNE NOUVELLE APP :
+      # Copiez le bloc ci-dessous et remplacez l'URL et le nom
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # - name: Ping Nouvelle App
       #   run: |
-      #     curl -s -o /dev/null --max-time 60 --retry 3 \
-      #       "https://votre-simulateur.streamlit.app"
-      #     echo "✅ Simulateur pingé"
+      #     echo "🔔 Ping Nouvelle App"
+      #     curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://nouvelle-app.streamlit.app/"
+      #     echo "✅ Nouvelle App OK"
