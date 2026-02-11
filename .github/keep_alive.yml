@@ -1,43 +1,101 @@
 # .github/workflows/keep_alive.yml
 # Empêche les apps Streamlit Community Cloud de passer en veille
-# en les visitant automatiquement toutes les 6 heures.
-# Pour ajouter une nouvelle app : copiez un bloc "Ping" et changez l'URL.
+# en les visitant avec un navigateur headless toutes les 6 heures.
+#
+# ⚠️  Un simple curl ne suffit PAS : Streamlit sert une page JS
+#     qui doit s'exécuter pour réveiller le conteneur.
+#     → On utilise Playwright (Chromium) pour simuler une vraie visite.
+#
+# Pour ajouter une nouvelle app : ajoutez une entrée dans le tableau "apps".
 
 name: Keep Streamlit Apps Alive
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
-  workflow_dispatch:
+    - cron: "0 */6 * * *"   # Toutes les 6 h : 00:00, 06:00, 12:00, 18:00 UTC
+  workflow_dispatch:          # Permet un déclenchement manuel depuis GitHub
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - name: Ping Portfolio
-        run: |
-          echo "🔔 Ping Portfolio — $(date -u '+%Y-%m-%d %H:%M UTC')"
-          curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://portfolio-nicodeme.streamlit.app/"
-          echo "✅ Portfolio OK"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Ping Analyseur de Sentiment
+      - name: Install Playwright + Chromium
         run: |
-          echo "🔔 Ping Analyseur de Sentiment"
-          curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://analyseur-sentiment.streamlit.app/"
-          echo "✅ Analyseur de Sentiment OK"
+          npm i -D playwright
+          npx playwright install chromium --with-deps
 
-      - name: Ping Ecosystem Simulator
+      - name: Wake up Streamlit apps
         run: |
-          echo "🔔 Ping Ecosystem Simulator"
-          curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://ecosystem-simulator.streamlit.app/"
-          echo "✅ Ecosystem Simulator OK"
+          node << 'SCRIPT'
+          const { chromium } = require('playwright');
 
-      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      # AJOUTER UNE NOUVELLE APP :
-      # Copiez le bloc ci-dessous et remplacez l'URL et le nom
-      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      # - name: Ping Nouvelle App
-      #   run: |
-      #     echo "🔔 Ping Nouvelle App"
-      #     curl -s -o /dev/null --max-time 60 --retry 3 --retry-delay 10 "https://nouvelle-app.streamlit.app/"
-      #     echo "✅ Nouvelle App OK"
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // LISTE DES APPS — Ajoutez vos apps ici
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          const apps = [
+            { name: "Portfolio",               url: "https://portfolio-nicodeme.streamlit.app/" },
+            { name: "Analyseur de Sentiment",  url: "https://analyseur-sentiment.streamlit.app/" },
+            { name: "Ecosystem Simulator",     url: "https://ecosystem-simulator.streamlit.app/" },
+            // { name: "Nouvelle App",          url: "https://nouvelle-app.streamlit.app/" },
+          ];
+
+          const WAKE_TIMEOUT  = 120_000;  // Timeout navigation : 2 min
+          const SETTLE_DELAY  =  15_000;  // Pause après chargement : 15 s
+
+          (async () => {
+            const browser = await chromium.launch();
+            const results = [];
+
+            for (const app of apps) {
+              const timestamp = new Date().toISOString();
+              console.log(`\n🔔 [${timestamp}] Ping ${app.name}`);
+              console.log(`   URL: ${app.url}`);
+
+              try {
+                const context = await browser.newContext();
+                const page = await context.newPage();
+
+                // Visite la page — le JS Streamlit s'exécute et réveille le conteneur
+                await page.goto(app.url, {
+                  waitUntil: 'networkidle',
+                  timeout: WAKE_TIMEOUT,
+                });
+
+                // Laisse le temps au conteneur de démarrer complètement
+                await page.waitForTimeout(SETTLE_DELAY);
+
+                const title = await page.title();
+                console.log(`   Titre de la page : "${title}"`);
+                console.log(`✅ ${app.name} OK`);
+                results.push({ app: app.name, status: 'ok' });
+
+                await context.close();
+              } catch (err) {
+                console.error(`❌ ${app.name} FAILED: ${err.message}`);
+                results.push({ app: app.name, status: 'failed', error: err.message });
+              }
+            }
+
+            await browser.close();
+
+            // Résumé final
+            console.log('\n━━━━━━━━━━ RÉSUMÉ ━━━━━━━━━━');
+            for (const r of results) {
+              const icon = r.status === 'ok' ? '✅' : '❌';
+              console.log(`${icon} ${r.app}`);
+            }
+
+            const failed = results.filter(r => r.status === 'failed');
+            if (failed.length > 0) {
+              console.error(`\n⚠️  ${failed.length} app(s) en échec.`);
+              process.exit(1);  // Marque le workflow comme failed dans GitHub
+            }
+          })();
+          SCRIPT
